@@ -1,0 +1,1224 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_icons/flutter_icons.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:moto_kerala/Api/AppUrl.dart';
+import 'package:moto_kerala/Api/FetchList.dart';
+import 'package:moto_kerala/CommonComponents/components/ChangePasswordDialog.dart';
+import 'package:moto_kerala/CommonComponents/components/EditDialog.dart';
+import 'package:moto_kerala/CommonComponents/components/Info.dart';
+import 'package:moto_kerala/CommonComponents/components/RaisedGradientButton.dart';
+import 'package:moto_kerala/Constants/Colors/CColor.dart';
+import 'package:moto_kerala/Constants/SizeConfig/SizeConfig.dart';
+import 'package:http/http.dart' as http;
+import 'package:moto_kerala/Store/fetchstored.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class ProfilePage extends StatefulWidget {
+  final GlobalKey<ScaffoldState> scaffoldkey;
+  final bool leadingbackbutton;
+  ProfilePage({this.scaffoldkey, this.leadingbackbutton = false});
+  @override
+  _ProfilePageState createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+
+  double adjheight;
+  double passDialogHeight;
+  @override
+  Widget build(BuildContext context) {
+
+
+
+    final ccolor = CColor();
+    double columngap = SizeConfig.screenWidth * 0.02;
+    double infotileheight = SizeConfig.screenHeight * 0.038;
+    Future thisfuture = fetchProfile();
+
+    File selectedImage;
+    String base64image;
+    final _picker = ImagePicker();
+
+    Future chooseImage() async {
+      print("image 1");
+      final pickedFile = await _picker.getImage(source: ImageSource.gallery);
+      setState(() {
+        if (pickedFile != null) {
+          selectedImage = File(pickedFile.path);
+          base64image = base64.encode(selectedImage.readAsBytesSync());
+          return base64image;
+        }
+      });
+    }
+
+    Future uploadImage() async {
+      print("image2");
+      await chooseImage();
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      setState(() {
+        var body = {"image": base64image};
+        var headerbody = {"token": "Bearer " + prefs.getString('token')};
+        // http.post(AppUrl.imageUploadLink, body: body, headers: {
+        //   HttpHeaders.authorizationHeader: headerbody['token'],
+        //   "Content-Type": "application/json"
+        // });
+      });
+    }
+
+    upload() {
+      setState(() {
+        uploadImage();
+        print("image3");
+      });
+    }
+
+    return Scaffold(
+      backgroundColor: ccolor.splashColorA,
+      appBar: AppBar(
+        automaticallyImplyLeading: widget.leadingbackbutton,
+        elevation: 0,
+        backgroundColor: ccolor.splashColorA,
+        title: Text(
+          "My Profile",
+          style: GoogleFonts.comfortaa(),
+        ),
+      ),
+      body: Container(
+        child: Stack(
+          children: [
+            Column(
+              children: [
+                Container(
+                  color: ccolor.splashColorA,
+                  width: SizeConfig.screenWidth,
+                  height: SizeConfig.screenHeight * 0.30,
+                ),
+                Expanded(
+                  child: Container(
+                    color: ccolor.scaffoldClr,
+                    width: SizeConfig.screenWidth,
+                  ),
+                ),
+              ],
+            ),
+            FutureBuilder(
+                future: thisfuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.done) {
+                    if (snapshot.hasData) {
+                      Map response = snapshot.data["data"];
+                      // print("profile response:" + response.toString());
+                      return RefreshIndicator(
+                        onRefresh: () {
+                          deleteAll();
+                          setState(() {
+                            refresh(thisfuture);
+                          });
+                          return null;
+                        },
+                        child: ListView(
+                          children: [
+                            Stack(
+                              children: [
+                                Container(
+                                  child: Column(
+                                    children: [
+                                      SizedBox(
+                                        height: SizeConfig.screenHeight * 0.13,
+                                      ),
+                                      Center(
+                                        child: Card(
+                                          clipBehavior: Clip.antiAlias,
+                                          shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(25)),
+                                          color: ccolor.scaffoldClr,
+                                          child: Container(
+                                            width: SizeConfig.screenWidth * 0.9,
+                                            child: Column(
+                                              children: [
+                                                SizedBox(
+                                                  height:
+                                                      SizeConfig.screenHeight *
+                                                          0.07,
+                                                ),
+                                                Container(
+                                                  child: Text(
+                                                    response["full_name"] ??
+                                                        "Nil",
+                                                    style: GoogleFonts.comfortaa(
+                                                        fontSize: SizeConfig
+                                                                .screenWidth *
+                                                            0.05,
+                                                        fontWeight:
+                                                            FontWeight.w800),
+                                                  ),
+                                                ),
+                                                Container(
+                                                  padding: EdgeInsets.only(
+                                                      top: SizeConfig
+                                                              .screenHeight *
+                                                          0.01,
+                                                      bottom: SizeConfig
+                                                              .screenHeight *
+                                                          0.04),
+                                                  child: Text(
+                                                    response["role_name"] ??
+                                                        "Nil",
+                                                    style: GoogleFonts.comfortaa(
+                                                        color: ccolor.loginSkip,
+                                                        fontSize: SizeConfig
+                                                                .screenWidth *
+                                                            0.035,
+                                                        fontWeight:
+                                                            FontWeight.w500),
+                                                  ),
+                                                ),
+                                                FutureBuilder(
+                                                    future:
+                                                        fetchBuyingLimitDetails(),
+                                                    builder:
+                                                        (context, snapshot) {
+                                                      if (snapshot.hasData) {
+                                                        print(snapshot.data);
+                                                        if(snapshot.data["data"].isNotEmpty)
+                                                        {
+                                                          Map response = snapshot
+                                                              .data["data"][0];
+                                                          return Container(
+                                                            height: SizeConfig
+                                                                .screenHeight *
+                                                                0.1,
+                                                            padding: EdgeInsets.only(
+                                                                left: SizeConfig
+                                                                    .screenWidth *
+                                                                    0.04,
+                                                                right: SizeConfig
+                                                                    .screenWidth *
+                                                                    0.02),
+                                                            child: Row(
+                                                              crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .start,
+                                                              mainAxisAlignment:
+                                                              MainAxisAlignment
+                                                                  .spaceBetween,
+                                                              children: [
+                                                                Flexible(
+                                                                  child:
+                                                                  Container(
+                                                                    child: Column(
+                                                                      children: [
+                                                                        SizedBox(
+                                                                          height: SizeConfig.screenHeight *
+                                                                              0.01,
+                                                                        ),
+                                                                        FutureBuilder(
+                                                                            future:
+                                                                            fetchDepositDetails(),
+                                                                            builder:
+                                                                                (context, snap) {
+                                                                              if (snap.hasData) {
+                                                                                // print("snapshot data:" + snapshot.data.toString());
+                                                                                var response = snap.data==""?0:snap.data;
+                                                                                return Text(
+                                                                                  "$response" ?? "Nil",
+                                                                                  style: GoogleFonts.comfortaa(
+                                                                                    fontSize: SizeConfig.screenWidth * 0.04,
+                                                                                    fontWeight: FontWeight.w500,
+                                                                                  ),
+                                                                                  overflow: TextOverflow.ellipsis,
+                                                                                );
+                                                                              } else
+                                                                                return Text(
+                                                                                  "Nil",
+                                                                                  style: GoogleFonts.comfortaa(
+                                                                                    fontSize: SizeConfig.screenWidth * 0.04,
+                                                                                    fontWeight: FontWeight.w500,
+                                                                                  ),
+                                                                                  overflow: TextOverflow.ellipsis,
+                                                                                );
+                                                                            }),
+                                                                        SizedBox(
+                                                                          height: SizeConfig.screenHeight *
+                                                                              0.01,
+                                                                        ),
+                                                                        Text(
+                                                                          "Total Balance",
+                                                                          maxLines:
+                                                                          2,
+                                                                          style: GoogleFonts
+                                                                              .comfortaa(
+                                                                            color:
+                                                                            ccolor.loginSkip,
+                                                                            fontSize:
+                                                                            SizeConfig.screenWidth * 0.027,
+                                                                            fontWeight:
+                                                                            FontWeight.w500,
+                                                                          ),
+                                                                        ),
+                                                                      ],
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                                Container(
+                                                                    height: SizeConfig
+                                                                        .screenHeight *
+                                                                        0.09,
+                                                                    child:
+                                                                    VerticalDivider()),
+                                                                Flexible(
+                                                                  child:
+                                                                  Container(
+                                                                    child: Column(
+                                                                      children: [
+                                                                        SizedBox(
+                                                                          height: SizeConfig.screenHeight *
+                                                                              0.01,
+                                                                        ),
+                                                                        Text(
+                                                                          "${response["participant_current_buying_limit"]??"Nil"}",
+                                                                          style: GoogleFonts
+                                                                              .comfortaa(
+                                                                            fontSize:
+                                                                            SizeConfig.screenWidth * 0.04,
+                                                                            fontWeight:
+                                                                            FontWeight.w500,
+                                                                          ),
+                                                                          overflow:
+                                                                          TextOverflow.ellipsis,
+                                                                        ),
+                                                                        SizedBox(
+                                                                          height: SizeConfig.screenHeight *
+                                                                              0.01,
+                                                                        ),
+                                                                        Text(
+                                                                          "Current Buying Limit",
+                                                                          textAlign:
+                                                                          TextAlign.center,
+                                                                          maxLines:
+                                                                          2,
+                                                                          style: GoogleFonts
+                                                                              .comfortaa(
+                                                                            color:
+                                                                            ccolor.loginSkip,
+                                                                            fontSize:
+                                                                            SizeConfig.screenWidth * 0.027,
+                                                                            fontWeight:
+                                                                            FontWeight.w500,
+                                                                          ),
+                                                                        ),
+                                                                      ],
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                                Container(
+                                                                    height: SizeConfig
+                                                                        .screenHeight *
+                                                                        0.09,
+                                                                    child:
+                                                                    VerticalDivider()),
+                                                                Flexible(
+                                                                  child:
+                                                                  Container(
+                                                                    child: Column(
+                                                                      children: [
+                                                                        SizedBox(
+                                                                          height: SizeConfig.screenHeight *
+                                                                              0.01,
+                                                                        ),
+                                                                        Text(
+                                                                          "${response["participant_initial_buying_limit"]??"Nil"}",
+                                                                          style: GoogleFonts
+                                                                              .comfortaa(
+                                                                            fontSize:
+                                                                            SizeConfig.screenWidth * 0.04,
+                                                                            fontWeight:
+                                                                            FontWeight.w500,
+                                                                          ),
+                                                                          overflow:
+                                                                          TextOverflow.ellipsis,
+                                                                        ),
+                                                                        SizedBox(
+                                                                          height: SizeConfig.screenHeight *
+                                                                              0.01,
+                                                                        ),
+                                                                        Text(
+                                                                          "Initial Buying Limit",
+                                                                          textAlign:
+                                                                          TextAlign.center,
+                                                                          maxLines:
+                                                                          2,
+                                                                          style: GoogleFonts
+                                                                              .comfortaa(
+                                                                            color:
+                                                                            ccolor.loginSkip,
+                                                                            fontSize:
+                                                                            SizeConfig.screenWidth * 0.027,
+                                                                            fontWeight:
+                                                                            FontWeight.w500,
+                                                                          ),
+                                                                        ),
+                                                                      ],
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          );
+                                                        }
+                                                        return Container(
+                                                          height: SizeConfig
+                                                              .screenHeight *
+                                                              0.1,
+                                                          padding: EdgeInsets.only(
+                                                              left: SizeConfig
+                                                                  .screenWidth *
+                                                                  0.04,
+                                                              right: SizeConfig
+                                                                  .screenWidth *
+                                                                  0.02),
+                                                          child: Row(
+                                                            crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                            mainAxisAlignment:
+                                                            MainAxisAlignment
+                                                                .spaceBetween,
+                                                            children: [
+                                                              Flexible(
+                                                                child:
+                                                                Container(
+                                                                  child: Column(
+                                                                    children: [
+                                                                      SizedBox(
+                                                                        height: SizeConfig.screenHeight *
+                                                                            0.01,
+                                                                      ),
+                                                                      Text(
+                                                                        "nil",
+                                                                        style: GoogleFonts
+                                                                            .comfortaa(
+                                                                          fontSize:
+                                                                          SizeConfig.screenWidth * 0.04,
+                                                                          fontWeight:
+                                                                          FontWeight.w500,
+                                                                        ),
+                                                                        overflow:
+                                                                        TextOverflow.ellipsis,
+                                                                      ),
+                                                                      SizedBox(
+                                                                        height: SizeConfig.screenHeight *
+                                                                            0.01,
+                                                                      ),
+                                                                      Text(
+                                                                        "Total Balance",
+                                                                        maxLines:
+                                                                        2,
+                                                                        style: GoogleFonts
+                                                                            .comfortaa(
+                                                                          color:
+                                                                          ccolor.loginSkip,
+                                                                          fontSize:
+                                                                          SizeConfig.screenWidth * 0.027,
+                                                                          fontWeight:
+                                                                          FontWeight.w500,
+                                                                        ),
+                                                                      ),
+                                                                    ],
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                              Container(
+                                                                  height: SizeConfig
+                                                                      .screenHeight *
+                                                                      0.09,
+                                                                  child:
+                                                                  VerticalDivider()),
+                                                              Flexible(
+                                                                child:
+                                                                Container(
+                                                                  child: Column(
+                                                                    children: [
+                                                                      SizedBox(
+                                                                        height: SizeConfig.screenHeight *
+                                                                            0.01,
+                                                                      ),
+                                                                      Text(
+                                                                        "nil",
+                                                                        style: GoogleFonts
+                                                                            .comfortaa(
+                                                                          fontSize:
+                                                                          SizeConfig.screenWidth * 0.04,
+                                                                          fontWeight:
+                                                                          FontWeight.w500,
+                                                                        ),
+                                                                        overflow:
+                                                                        TextOverflow.ellipsis,
+                                                                      ),
+                                                                      SizedBox(
+                                                                        height: SizeConfig.screenHeight *
+                                                                            0.01,
+                                                                      ),
+                                                                      Text(
+                                                                        "Current Buying Limit",
+                                                                        textAlign:
+                                                                        TextAlign.center,
+                                                                        maxLines:
+                                                                        2,
+                                                                        style: GoogleFonts
+                                                                            .comfortaa(
+                                                                          color:
+                                                                          ccolor.loginSkip,
+                                                                          fontSize:
+                                                                          SizeConfig.screenWidth * 0.027,
+                                                                          fontWeight:
+                                                                          FontWeight.w500,
+                                                                        ),
+                                                                      ),
+                                                                    ],
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                              Container(
+                                                                  height: SizeConfig
+                                                                      .screenHeight *
+                                                                      0.09,
+                                                                  child:
+                                                                  VerticalDivider()),
+                                                              Flexible(
+                                                                child:
+                                                                Container(
+                                                                  child: Column(
+                                                                    children: [
+                                                                      SizedBox(
+                                                                        height: SizeConfig.screenHeight *
+                                                                            0.01,
+                                                                      ),
+                                                                      Text(
+                                                                        "nil",
+                                                                        style: GoogleFonts
+                                                                            .comfortaa(
+                                                                          fontSize:
+                                                                          SizeConfig.screenWidth * 0.04,
+                                                                          fontWeight:
+                                                                          FontWeight.w500,
+                                                                        ),
+                                                                        overflow:
+                                                                        TextOverflow.ellipsis,
+                                                                      ),
+                                                                      SizedBox(
+                                                                        height: SizeConfig.screenHeight *
+                                                                            0.01,
+                                                                      ),
+                                                                      Text(
+                                                                        "Initial Buying Limit",
+                                                                        textAlign:
+                                                                        TextAlign.center,
+                                                                        maxLines:
+                                                                        2,
+                                                                        style: GoogleFonts
+                                                                            .comfortaa(
+                                                                          color:
+                                                                          ccolor.loginSkip,
+                                                                          fontSize:
+                                                                          SizeConfig.screenWidth * 0.027,
+                                                                          fontWeight:
+                                                                          FontWeight.w500,
+                                                                        ),
+                                                                      ),
+                                                                    ],
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        );
+                                                      } else
+                                                        return Container(
+                                                          height: SizeConfig
+                                                                  .screenHeight *
+                                                              0.1,
+                                                          padding: EdgeInsets.only(
+                                                              left: SizeConfig
+                                                                      .screenWidth *
+                                                                  0.04,
+                                                              right: SizeConfig
+                                                                      .screenWidth *
+                                                                  0.02),
+                                                          child: Row(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .start,
+                                                            mainAxisAlignment:
+                                                                MainAxisAlignment
+                                                                    .spaceBetween,
+                                                            children: [
+                                                              Flexible(
+                                                                child:
+                                                                    Container(
+                                                                  child: Column(
+                                                                    children: [
+                                                                      SizedBox(
+                                                                        height: SizeConfig.screenHeight *
+                                                                            0.01,
+                                                                      ),
+                                                                      Text(
+                                                                        "nil",
+                                                                        style: GoogleFonts
+                                                                            .comfortaa(
+                                                                          fontSize:
+                                                                              SizeConfig.screenWidth * 0.04,
+                                                                          fontWeight:
+                                                                              FontWeight.w500,
+                                                                        ),
+                                                                        overflow:
+                                                                            TextOverflow.ellipsis,
+                                                                      ),
+                                                                      SizedBox(
+                                                                        height: SizeConfig.screenHeight *
+                                                                            0.01,
+                                                                      ),
+                                                                      Text(
+                                                                        "Total Balance",
+                                                                        maxLines:
+                                                                            2,
+                                                                        style: GoogleFonts
+                                                                            .comfortaa(
+                                                                          color:
+                                                                              ccolor.loginSkip,
+                                                                          fontSize:
+                                                                              SizeConfig.screenWidth * 0.027,
+                                                                          fontWeight:
+                                                                              FontWeight.w500,
+                                                                        ),
+                                                                      ),
+                                                                    ],
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                              Container(
+                                                                  height: SizeConfig
+                                                                          .screenHeight *
+                                                                      0.09,
+                                                                  child:
+                                                                      VerticalDivider()),
+                                                              Flexible(
+                                                                child:
+                                                                    Container(
+                                                                  child: Column(
+                                                                    children: [
+                                                                      SizedBox(
+                                                                        height: SizeConfig.screenHeight *
+                                                                            0.01,
+                                                                      ),
+                                                                      Text(
+                                                                        "nil",
+                                                                        style: GoogleFonts
+                                                                            .comfortaa(
+                                                                          fontSize:
+                                                                              SizeConfig.screenWidth * 0.04,
+                                                                          fontWeight:
+                                                                              FontWeight.w500,
+                                                                        ),
+                                                                        overflow:
+                                                                            TextOverflow.ellipsis,
+                                                                      ),
+                                                                      SizedBox(
+                                                                        height: SizeConfig.screenHeight *
+                                                                            0.01,
+                                                                      ),
+                                                                      Text(
+                                                                        "Current Buying Limit",
+                                                                        textAlign:
+                                                                            TextAlign.center,
+                                                                        maxLines:
+                                                                            2,
+                                                                        style: GoogleFonts
+                                                                            .comfortaa(
+                                                                          color:
+                                                                              ccolor.loginSkip,
+                                                                          fontSize:
+                                                                              SizeConfig.screenWidth * 0.027,
+                                                                          fontWeight:
+                                                                              FontWeight.w500,
+                                                                        ),
+                                                                      ),
+                                                                    ],
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                              Container(
+                                                                  height: SizeConfig
+                                                                          .screenHeight *
+                                                                      0.09,
+                                                                  child:
+                                                                      VerticalDivider()),
+                                                              Flexible(
+                                                                child:
+                                                                    Container(
+                                                                  child: Column(
+                                                                    children: [
+                                                                      SizedBox(
+                                                                        height: SizeConfig.screenHeight *
+                                                                            0.01,
+                                                                      ),
+                                                                      Text(
+                                                                        "nil",
+                                                                        style: GoogleFonts
+                                                                            .comfortaa(
+                                                                          fontSize:
+                                                                              SizeConfig.screenWidth * 0.04,
+                                                                          fontWeight:
+                                                                              FontWeight.w500,
+                                                                        ),
+                                                                        overflow:
+                                                                            TextOverflow.ellipsis,
+                                                                      ),
+                                                                      SizedBox(
+                                                                        height: SizeConfig.screenHeight *
+                                                                            0.01,
+                                                                      ),
+                                                                      Text(
+                                                                        "Initial Buying Limit",
+                                                                        textAlign:
+                                                                            TextAlign.center,
+                                                                        maxLines:
+                                                                            2,
+                                                                        style: GoogleFonts
+                                                                            .comfortaa(
+                                                                          color:
+                                                                              ccolor.loginSkip,
+                                                                          fontSize:
+                                                                              SizeConfig.screenWidth * 0.027,
+                                                                          fontWeight:
+                                                                              FontWeight.w500,
+                                                                        ),
+                                                                      ),
+                                                                    ],
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        );
+                                                    }),
+                                                SizedBox(
+                                                  height:
+                                                      SizeConfig.screenHeight *
+                                                          0.005,
+                                                ),
+                                                Container(
+                                                  height:
+                                                      SizeConfig.screenHeight *
+                                                          0.01,
+                                                  decoration: BoxDecoration(
+                                                      gradient: LinearGradient(
+                                                          colors: [
+                                                        CColor().splashColorA,
+                                                        CColor().splashColorB
+                                                      ],
+                                                          begin: Alignment
+                                                              .centerLeft,
+                                                          end: Alignment
+                                                              .centerRight)),
+                                                ), //TODO add color,
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                circlePic(),
+                                Positioned(
+                                  top: ((SizeConfig.screenHeight / 2) -
+                                      (SizeConfig.screenHeight / 2.7)),
+                                  left: ((SizeConfig.screenWidth / 2) +
+                                      (SizeConfig.screenWidth / 13)),
+                                  child: Container(
+                                    width: SizeConfig.screenWidth * 0.08,
+                                    height: SizeConfig.screenWidth * 0.08,
+                                    decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: ccolor.stackBtn),
+                                    child: Center(
+                                      child: GestureDetector(
+                                        onTap: upload,
+                                        child: Icon(
+                                          FontAwesome.camera,
+                                          size: SizeConfig.screenWidth * 0.045,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              ],
+                            ),
+                            Center(
+                                child: Card(
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(25)),
+                              color: ccolor.scaffoldClr,
+                              child: Container(
+                                width: SizeConfig.screenWidth * 0.9,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      padding: EdgeInsets.only(
+                                          left: SizeConfig.screenWidth * 0.065,
+                                          top: SizeConfig.screenHeight * 0.03),
+                                      child: Row(
+                                        children: [
+                                          Text(
+                                            "GENERAL INFORMATION",
+                                            style: GoogleFonts.comfortaa(
+                                                fontSize:
+                                                    SizeConfig.screenWidth *
+                                                        0.035,
+                                                fontWeight: FontWeight.w800,
+                                                color: ccolor.loginSkip),
+                                          ),
+                                          SizedBox(
+                                            width:
+                                                SizeConfig.screenWidth * 0.03,
+                                          ),
+                                          Container(
+                                            child: Column(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.start,
+                                              children: [
+                                                IconButton(
+                                                  icon: Icon(
+                                                    FontAwesome.pencil,
+                                                  ),
+                                                  iconSize:
+                                                      SizeConfig.screenWidth *
+                                                          0.05,
+                                                  color: ccolor.loginSkip,
+                                                  onPressed: () {
+                                                    editDialog(context);
+                                                  },
+                                                  // onPressed: () {
+                                                  //   editForm(context, ccolor);
+                                                  // },
+                                                ),
+                                                SizedBox(
+                                                  height:
+                                                      SizeConfig.screenHeight *
+                                                          0.001,
+                                                )
+                                              ],
+                                            ),
+                                          )
+                                        ],
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: EdgeInsets.only(
+                                        top: SizeConfig.screenHeight * 0.02,
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          Container(
+                                              width: double.infinity,
+                                              child: Info(
+                                                field: response["first_name"] ??
+                                                    response["user_name"] ??
+                                                    response["full_name"] ??
+                                                    "Nil",
+                                                icon: Icons.person_rounded,
+                                              )),
+                                          SizedBox(
+                                            height: columngap,
+                                          ),
+                                          Container(
+                                              height: infotileheight,
+                                              width: double.infinity,
+                                              color: Colors.grey[200],
+                                              child: Info(
+                                                field:
+                                                    response["gender"] ?? "Nil",
+                                                icon: Ionicons.md_male,
+                                              )),
+                                          SizedBox(
+                                            height: columngap,
+                                          ),
+                                          Container(
+                                              child: Info(
+                                            field: response["email"] ?? "Nil",
+                                            icon: Ionicons.md_mail,
+                                          )),
+                                          SizedBox(
+                                            height: columngap,
+                                          ),
+                                          Container(
+                                              height: infotileheight,
+                                              width: double.infinity,
+                                              color: ccolor.infoBlock,
+                                              child: Info(
+                                                field:
+                                                    response["mobile_number"] ??
+                                                        "Nil",
+                                                icon:
+                                                    Ionicons.md_phone_portrait,
+                                              )),
+                                          SizedBox(
+                                            height: columngap,
+                                          ),
+                                          Info(
+                                            field:
+                                                response["sec_mobile_number"] ??
+                                                    "Nil",
+                                            icon: Ionicons.md_phone_portrait,
+                                          ),
+                                          SizedBox(
+                                            height: columngap,
+                                          ),
+                                          Container(
+                                              height: infotileheight,
+                                              width: double.infinity,
+                                              color: ccolor.infoBlock,
+                                              child: Info(
+                                                field: response["role_name"] ??
+                                                    "Nil",
+                                                icon: Ionicons.ios_briefcase,
+                                              )),
+                                          SizedBox(
+                                            height: columngap + columngap,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )),
+                            Center(
+                              child: Card(
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(25)),
+                                color: ccolor.scaffoldClr,
+                                child: Container(
+                                  width: SizeConfig.screenWidth * 0.9,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        padding: EdgeInsets.only(
+                                            left:
+                                                SizeConfig.screenWidth * 0.065,
+                                            top:
+                                                SizeConfig.screenHeight * 0.03),
+                                        child: Row(
+                                          children: [
+                                            Text(
+                                              "ADDRESS INFORMATION",
+                                              style: GoogleFonts.comfortaa(
+                                                  fontSize:
+                                                      SizeConfig.screenWidth *
+                                                          0.035,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: ccolor.loginSkip),
+                                            ),
+                                            SizedBox(
+                                              width:
+                                                  SizeConfig.screenWidth * 0.03,
+                                            ),
+                                            Container(
+                                              child: Column(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.start,
+                                                children: [
+                                                  IconButton(
+                                                    icon: Icon(
+                                                      FontAwesome.pencil,
+                                                    ),
+                                                    iconSize:
+                                                        SizeConfig.screenWidth *
+                                                            0.05,
+                                                    color: ccolor.loginSkip,
+                                                    onPressed: () {
+                                                      editDialog(context);
+                                                    },
+                                                    // onPressed: () {
+                                                    //   editForm(context, ccolor);
+                                                    // },
+                                                  ),
+                                                  SizedBox(
+                                                    height: SizeConfig
+                                                            .screenHeight *
+                                                        0.001,
+                                                  )
+                                                ],
+                                              ),
+                                            )
+                                          ],
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: EdgeInsets.only(
+                                          top: SizeConfig.screenHeight * 0.02,
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            Container(
+                                                // height: SizeConfig.screenHeight * 0.035,
+                                                width: double.infinity,
+                                                // color: ccolor.infoBlock,
+                                                child: Info(
+                                                  field: response["state"] ??
+                                                      "Nil",
+                                                  icon: Icons.map,
+                                                )),
+                                            SizedBox(
+                                              height: columngap,
+                                            ),
+                                            Container(
+                                              height: infotileheight,
+                                              width: double.infinity,
+                                              color: ccolor.infoBlock,
+                                              child: Info(
+                                                field:
+                                                    response["city"] ?? "Nil",
+                                                icon: Icons.pin_drop,
+                                              ),
+                                            ),
+                                            SizedBox(
+                                              height: columngap,
+                                            ),
+                                            Container(
+                                              width: double.infinity,
+                                              // color: ccolor.infoBlock,
+                                              child: Info(
+                                                field: response["pin_code"] ??
+                                                    "Nil",
+                                                icon: Icons.lock,
+                                              ),
+                                            ),
+                                            SizedBox(
+                                              height: columngap,
+                                            ),
+                                            Container(
+                                              padding: EdgeInsets.symmetric(
+                                                  vertical: 10),
+                                              width: double.infinity,
+                                              color: ccolor.infoBlock,
+                                              child: Info(
+                                                field: response["address"] ??
+                                                    "Nil",
+                                                icon: Ionicons.ios_home,
+                                              ),
+                                            ),
+                                            SizedBox(
+                                              height: columngap * 3,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              height: SizeConfig.screenHeight * 0.01,
+                            ),
+                            Container(
+                              child: Align(
+                                alignment: Alignment.bottomCenter,
+                                child: Container(
+                                  width: SizeConfig.screenWidth * 0.4,
+                                  child: RaisedGradientButton(
+                                    height: 50,
+                                    onPressed: () {
+                                      passwordDialog(context);
+                                    },
+                                    child: Text(
+                                      "Change Password",
+                                      style: GoogleFonts.comfortaa(
+                                          color: ccolor.loginTxt,
+                                          fontSize:
+                                              SizeConfig.screenWidth * 0.03),
+                                    ),
+                                    radius: 30,
+                                    gradient: LinearGradient(
+                                        colors: [
+                                          ccolor.loginBtnTop,
+                                          ccolor.loginBtnBtm
+                                        ],
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              height: SizeConfig.screenHeight * 0.02,
+                            ),
+                          ],
+                        ),
+                      );
+                    } else if (snapshot.hasError) {
+                      return Center(
+                        child: Text(
+                          "Error response from server",
+                          style: GoogleFonts.comfortaa(
+                              fontSize: SizeConfig.screenWidth * 0.03),
+                        ),
+                      );
+                    }
+                  } else if (snapshot.connectionState ==
+                      ConnectionState.waiting) {
+                    return Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  }
+                  return Center(
+                      child: Text("Connection Error",
+                          style: GoogleFonts.comfortaa(
+                              fontSize: SizeConfig.screenWidth * 0.03)));
+                }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future editDialog(BuildContext context) {
+    return showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        insetPadding: EdgeInsets.all(SizeConfig.screenWidth * 0.001),
+        child: Container(
+            width: SizeConfig.screenWidth * 0.9,
+            height: (SizeConfig.screenHeight * 0.75) -
+                MediaQuery.of(context).padding.bottom,
+            child: EditForm()),
+      ),
+    );
+  }
+
+  Future passwordDialog(BuildContext context) {
+    if (SizeConfig.blockSizeVertical >= 5 &&
+        SizeConfig.blockSizeVertical <= 6) {
+      passDialogHeight = SizeConfig.screenHeight * 0.34;
+    }
+    if (SizeConfig.blockSizeVertical >= 4 &&
+        SizeConfig.blockSizeVertical <= 5) {
+      passDialogHeight = SizeConfig.screenHeight * 0.35;
+    }
+    if (SizeConfig.blockSizeVertical >= 9 &&
+        SizeConfig.blockSizeVertical <= 9.26) {
+      passDialogHeight = SizeConfig.screenHeight * 0.3;
+    } else if (SizeConfig.blockSizeVertical >= 8 &&
+        SizeConfig.blockSizeVertical <= 9) {
+      //iphone11,11 pro,11 pro max,12 mini
+      passDialogHeight = SizeConfig.screenHeight * 0.3;
+    } else if (SizeConfig.blockSizeVertical >= 6 &&
+        SizeConfig.blockSizeVertical <= 7) {
+      //iphone8,SE
+      passDialogHeight = SizeConfig.screenHeight * 0.33;
+    } else if (SizeConfig.blockSizeVertical >= 7 &&
+        SizeConfig.blockSizeVertical <= 8) {
+      //iphone8plus
+      passDialogHeight = SizeConfig.screenHeight * 0.33;
+    } else if (SizeConfig.blockSizeVertical <= 12 &&
+        SizeConfig.blockSizeVertical >= 11) {
+      //ipad pro 11 inch
+      passDialogHeight = SizeConfig.screenHeight * 0.29;
+    } else if (SizeConfig.blockSizeVertical >= 10 && //ipad 9.7 inch
+        SizeConfig.blockSizeVertical <= 11) {
+      passDialogHeight = SizeConfig.screenHeight * 0.3;
+    } else if (SizeConfig.blockSizeVertical >= 12 &&
+        SizeConfig.blockSizeVertical <= 13) {
+      passDialogHeight = SizeConfig.screenHeight * 0.29;
+    } else if (SizeConfig.blockSizeVertical >= 13 && //ipad pro 13 inch
+        SizeConfig.blockSizeVertical <= 14) {
+      passDialogHeight = SizeConfig.screenHeight * 0.28;
+    }
+
+    return showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        insetPadding: EdgeInsets.all(SizeConfig.screenWidth * 0.001),
+        child: Container(
+            width: SizeConfig.screenWidth * 0.9,
+            height: passDialogHeight,
+            child: ChangePasswordDialog()),
+      ),
+    );
+  }
+
+  Positioned circlePic() {
+    if (SizeConfig.blockSizeVertical >= 5 &&
+        SizeConfig.blockSizeVertical <= 6) {
+      adjheight = 19;
+    }
+    if (SizeConfig.blockSizeVertical >= 4 &&
+        SizeConfig.blockSizeVertical <= 5) {
+      adjheight = 17;
+    }
+    if (SizeConfig.blockSizeVertical >= 9 &&
+        SizeConfig.blockSizeVertical <= 9.26) {
+      adjheight = 50;
+    } else if (SizeConfig.blockSizeVertical >= 8 &&
+        SizeConfig.blockSizeVertical <= 9) {
+      //iphone11,11 pro,11 pro max,12 mini
+      adjheight = 55;
+    } else if (SizeConfig.blockSizeVertical >= 6 &&
+        SizeConfig.blockSizeVertical <= 7) {
+      //iphone8,SE
+      adjheight = 30;
+    } else if (SizeConfig.blockSizeVertical >= 7 &&
+        SizeConfig.blockSizeVertical <= 8) {
+      //iphone8plus
+      adjheight = 40;
+    } else if (SizeConfig.blockSizeVertical <= 12 &&
+        SizeConfig.blockSizeVertical >= 11) {
+      //ipad pro 11 inch
+      adjheight = 24;
+    } else if (SizeConfig.blockSizeVertical >= 10 && //ipad 9.7 inch
+        SizeConfig.blockSizeVertical <= 11) {
+      adjheight = 9;
+    } else if (SizeConfig.blockSizeVertical >= 12 &&
+        SizeConfig.blockSizeVertical <= 13) {
+      adjheight = 26;
+    } else if (SizeConfig.blockSizeVertical >= 13 && //ipad pro 13 inch
+        SizeConfig.blockSizeVertical <= 14) {
+      adjheight = 15;
+    }
+    return Positioned(
+        left: ((SizeConfig.screenWidth / 2) - (SizeConfig.screenWidth / 9)),
+        top: adjheight,
+        child: Container(
+            height: (SizeConfig.screenWidth / 4),
+            width: (SizeConfig.screenWidth / 4),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: CColor().scaffoldClr,
+            ),
+            child: Center(
+              child: Container(
+                height: (SizeConfig.screenWidth / 4.2),
+                width: (SizeConfig.screenWidth / 4.2),
+                child: CircleAvatar(
+                    backgroundColor: CColor().scaffoldClr,
+                    backgroundImage: CachedNetworkImageProvider(
+                        "https://www.bglaw.com/wp-content/uploads/2020/05/avatar-placeholder.png"
+                    )),
+              ),
+            )));
+  }
+}
+
+Future refresh(thisfuture) async {
+  return thisfuture = await fetchProfile();
+}
